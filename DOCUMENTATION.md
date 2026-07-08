@@ -1,6 +1,6 @@
 # SoftCosy — Documentation Technique Complète
 
-> Plateforme unifiée Soft&Cozy : boutique en ligne (vêtements de sport, marché de Lomé, Togo)
+> Plateforme unifiée Soft&Cosy : boutique en ligne (vêtements de sport, marché de Lomé, Togo)
 > **et** système de gestion commerciale (POS, stocks, achats, inventaires, rapports), servis
 > depuis un seul frontend et un seul backend.
 > Version : 2.0 — Dernière mise à jour : Juillet 2026 (fusion frontend site + app)
@@ -30,7 +30,7 @@
 
 **SoftCosy** est désormais un projet unique qui réunit deux produits historiquement séparés :
 
-- **Soft&Cozy**, la boutique en ligne (vêtements de sport Nike, Adidas, Under Armour) — servie
+- **Soft&Cosy**, la boutique en ligne (vêtements de sport Nike, Adidas, Under Armour) — servie
   à la racine du domaine.
 - **SoftCosy**, l'application de gestion commerciale interne (caisse, stocks, achats,
   inventaires, rapports) — servie sous `/admin`.
@@ -752,7 +752,7 @@ GOOGLE_DRIVE_PARENT_FOLDER_ID=votre_folder_id_drive
 
 ## 4. Frontend — Next.js (site vitrine + application de gestion)
 
-Depuis juillet 2026, le frontend Soft&Cozy (boutique) et le frontend SoftCosy (application de
+Depuis juillet 2026, le frontend Soft&Cosy (boutique) et le frontend SoftCosy (application de
 gestion) sont **un seul projet Next.js** (`Frontend/`), déployé une seule fois. Voir
 [14.2](#142-fusion-frontend--un-seul-déploiement-sous-un-seul-domaine) pour l'historique de
 cette fusion.
@@ -826,7 +826,7 @@ script s'exécute normalement. Un Route Handler n'est par ailleurs jamais envelo
 `layout.tsx` : la boutique ne charge donc ni Tailwind, ni les providers React (Auth, React
 Query, thème) de l'application de gestion.
 
-### 4.3 Site vitrine (boutique Soft&Cozy) — `/`
+### 4.3 Site vitrine (boutique Soft&Cosy) — `/`
 
 **Fichiers** : [site/index.html](Frontend/site/index.html) | [public/style.css](Frontend/public/style.css)
 
@@ -846,7 +846,7 @@ bundler, sans dépendances npm — hérité tel quel de l'ancien projet indépen
 
 | Section | Description |
 |---|---|
-| **Header fixe** | Logo Soft&Cozy (Bebas Neue), bouton panier avec compteur, fond flouté (`backdrop-filter: blur`) |
+| **Header fixe** | Logo Soft&Cosy (Bebas Neue), bouton panier avec compteur, fond flouté (`backdrop-filter: blur`) |
 | **Section Hero** | Titre principal « DÉPASSE TES LIMITES », sous-titre, 2 boutons CTA (Acheter, Parcourir), image de fond |
 | **Bande de stats** | 4 indicateurs : 50+ Produits, 3 Marques, Taille XS→4XL, Livraison Lomé |
 | **Grille de produits** | Filtres (marques + catégories), grille responsive 4 colonnes |
@@ -905,7 +905,7 @@ bundler, sans dépendances npm — hérité tel quel de l'ancien projet indépen
 **SEO**
 - `robots.txt` : indexation autorisée, `/admin/` bloqué
 - `sitemap.xml` : URL racine du site
-- `favicon.svg` : logo Soft&Cozy dans l'onglet
+- `favicon.svg` : logo Soft&Cosy dans l'onglet
 
 > **Pas de backend dédié** : contrairement à l'ancien projet `site_softcosy` (qui avait son
 > propre serveur Express avec routes `/api/products`, `/api/upload`, etc.), la boutique n'a
@@ -1251,7 +1251,7 @@ aucune duplication ni retraitement d'image entre l'application de gestion et la 
 
 ### 7.1 Boutique en ligne
 
-Voir [4.3](#43-site-vitrine-boutique-softcozy--) pour le détail complet (grille produits,
+Voir [4.3](#43-site-vitrine-boutique-softcosy--) pour le détail complet (grille produits,
 panier, checkout WhatsApp, filtres marque/catégorie).
 
 ### 7.2 Tableau de bord (Dashboard)
@@ -1487,7 +1487,7 @@ services:
 ### 8.3 Frontend — Vercel
 
 Compte Vercel : compte personnel (plan **Hobby**), workspace affiché **"doux et confortable"**
-(nom francisé de "Soft & Cozy"), projet **`soft-cosy`**, connecté au même repo GitHub
+(nom francisé de "Soft & Cosy"), projet **`soft-cosy`**, connecté au même repo GitHub
 `lawsondjeckylaurenne/SoftCosy` (racine `Frontend/`). Vercel détecte automatiquement Next.js
 (zero-config) : à chaque `git push` sur la branche connectée, Vercel rebuild et redéploie
 automatiquement. URL de secours (avant/à côté du domaine personnalisé) :
@@ -1506,7 +1506,7 @@ automatiquement. URL de secours (avant/à côté du domaine personnalisé) :
 **Domaine personnalisé** : `softcosy.store` et `www.softcosy.store` sont attachés à ce projet
 Vercel (Project → Settings → Domains). Voir [8.1](#81-nom-de-domaine--namecheap) pour les
 enregistrements DNS exacts. Une fois la configuration validée par Vercel :
-- `https://softcosy.store/` → redirige (308) vers `https://www.softcosy.store/` → boutique Soft&Cozy
+- `https://softcosy.store/` → redirige (308) vers `https://www.softcosy.store/` → boutique Soft&Cosy
 - `https://softcosy.store/admin` (ou `www.`) → connexion à l'application de gestion
 
 ### 8.4 Fichiers statiques

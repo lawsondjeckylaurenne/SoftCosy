@@ -501,7 +501,7 @@ export default function AddEditProductModal({
                     name="brand"
                     value={formData.brand || ''}
                     onChange={handleProductChange}
-                    placeholder="ex: Nike, Adidas, SoftCozy..."
+                    placeholder="ex: Nike, Adidas, SoftCosy..."
                     className="h-11"
                   />
                 </div>

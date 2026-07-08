@@ -2,7 +2,7 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
 
-// Sert la vitrine Soft&Cozy (HTML/CSS/JS statique) à la racine du domaine.
+// Sert la vitrine Soft&Cosy (HTML/CSS/JS statique) à la racine du domaine.
 // Un Route Handler renvoie le document brut au navigateur (pas de passage par
 // React/dangerouslySetInnerHTML), donc le <script> inline du site s'exécute
 // normalement — contrairement à une injection via innerHTML qui l'aurait bloqué.

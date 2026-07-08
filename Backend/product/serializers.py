@@ -379,7 +379,7 @@ class ProductFullSerializer(serializers.ModelSerializer):
 
 class SiteProductSerializer(serializers.ModelSerializer):
     """
-    Sérialiseur pour l'API publique de la vitrine Soft&Cozy.
+    Sérialiseur pour l'API publique de la vitrine Soft&Cosy.
 
     Transforme les données Django en format JSON attendu par le JavaScript
     du site web (index.html). Ce format est identique à ce que retournait

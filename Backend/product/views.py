@@ -271,7 +271,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 class SiteProductViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    API publique en lecture seule pour la vitrine Soft&Cozy.
+    API publique en lecture seule pour la vitrine Soft&Cosy.
 
     Retourne uniquement les produits marqués 'is_published=True',
     dans un format JSON compatible avec le JavaScript de la vitrine.

@@ -148,7 +148,7 @@ nav a:hover {
 }
 
 .hero::before {
-  content: 'SOFT&COZY';
+  content: 'SOFT&COSY';
   position: absolute;
   font-family: 'Bebas Neue', sans-serif;
   font-size: 300px;

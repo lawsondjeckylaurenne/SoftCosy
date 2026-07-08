@@ -215,7 +215,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
-    # Site vitrine Soft&Cozy (ancien déploiement Vercel, conservé pendant la transition)
+    # Site vitrine Soft&Cosy (ancien déploiement Vercel, conservé pendant la transition)
     'https://siteweb-softcosy.vercel.app',
     # Application de gestion SoftCosy (ancien déploiement Vercel, conservé pendant la transition)
     'https://soft-cosy.vercel.app',
