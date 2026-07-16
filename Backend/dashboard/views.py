@@ -8,12 +8,18 @@ from django.db.models import Sum, Count, F, Q
 from datetime import timedelta
 import decimal
 
+from user.permissions import required_page
 from sale.models import Sale, SaleLine
 from stockmouvement.models import Stock, StockMovement, SystemSettings
 from product.models import Product, Category
 
 class DashboardViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        # recent_data (alertes stock faible) est aussi consulté depuis Paramètres
+        if self.action == 'recent_data':
+            return [IsAuthenticated(), required_page('dashboard', 'settings')()]
+        return [IsAuthenticated(), required_page('dashboard')()]
 
     @action(detail=False, methods=['get'])
     def summary(self, request):

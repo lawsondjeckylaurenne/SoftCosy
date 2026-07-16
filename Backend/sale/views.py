@@ -2,9 +2,10 @@ from django.shortcuts import render
 
 # Create your views here.
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
+from user.permissions import required_page
 from .models import Customer, Sale, SaleLine
 from .serializers import (
     CustomerSerializer,
@@ -26,7 +27,7 @@ from .serializers import (
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated, required_page('customers')]
     search_fields = ['name', 'phone']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
@@ -43,7 +44,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 class SaleLineViewSet(viewsets.ModelViewSet):
     queryset = SaleLine.objects.select_related('sale', 'product', 'variant')
     serializer_class = SaleLineSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated, required_page('sales')]
     filterset_fields = ['sale', 'product', 'variant']
 
 
@@ -58,10 +59,16 @@ class SaleLineViewSet(viewsets.ModelViewSet):
 class SaleViewSet(viewsets.ModelViewSet):
     queryset = Sale.objects.select_related('customer', 'user').prefetch_related('lines')
     serializer_class = SaleListSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
     search_fields = ['invoice_number', 'customer__name']
     ordering_fields = ['-id', 'sold_at', 'total']
     ordering = ['-id']
+
+    def get_permissions(self):
+        # Créer une vente se fait depuis la Caisse ; consulter/modifier
+        # l'historique se fait depuis la page Ventes (remboursements inclus).
+        if self.action == 'create':
+            return [IsAuthenticated(), required_page('cashier')()]
+        return [IsAuthenticated(), required_page('sales')()]
 
     def get_serializer_class(self):
         if self.action == 'list':

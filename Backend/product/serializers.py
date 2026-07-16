@@ -275,7 +275,7 @@ class ProductFullSerializer(serializers.ModelSerializer):
                     stock=stock_obj,
                     movement_type='ENTREE',
                     quantite=initial_stock,
-                    reason='ACHAT_FOURNISSEUR',
+                    reason='STOCK_INITIAL',
                     notes='Stock initial à la création du produit',
                 )
 
@@ -360,7 +360,7 @@ class ProductFullSerializer(serializers.ModelSerializer):
                             stock=stock_obj,
                             movement_type='ENTREE',
                             quantite=initial_stock,
-                            reason='ACHAT_FOURNISSEUR',
+                            reason='STOCK_INITIAL',
                             notes='Stock initial à la création de la variante',
                         )
                     ids_recus.append(variant.id)

@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { X, ArrowRight, Package, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
-import api from '@/lib/api'
+import { X, ArrowRight, Package, TrendingUp, TrendingDown, AlertTriangle, Search } from 'lucide-react'
+import api, { fetchAllPages } from '@/lib/api'
 
 interface Stock {
   id: number
@@ -22,6 +22,7 @@ interface AddMovementModalProps {
   onSuccess?: () => void
   movementToEdit?: any
   preselectedProductId?: number  // Pré-sélectionne les stocks d'un produit spécifique
+  initialStockId?: number  // Pré-sélectionne directement une variante précise
 }
 
 const movementTypes = [
@@ -64,6 +65,7 @@ export default function AddMovementModal({
   onSuccess,
   movementToEdit,
   preselectedProductId,
+  initialStockId,
 }: AddMovementModalProps) {
   const queryClient = useQueryClient()
   
@@ -75,6 +77,10 @@ export default function AddMovementModal({
     notes: '',
   })
 
+  // ── Recherche de produit/variante (évite de parcourir toute la liste) ──
+  const [stockSearchTerm, setStockSearchTerm] = useState('')
+  const [showStockList, setShowStockList] = useState(false)
+
   // Pre-fill form when editing
   useEffect(() => {
     if (movementToEdit && isOpen) {
@@ -85,22 +91,24 @@ export default function AddMovementModal({
         reason: movementToEdit.reason,
         notes: movementToEdit.notes || '',
       })
+      setStockSearchTerm('')
+      setShowStockList(false)
     } else if (isOpen) {
       resetForm()
+      if (initialStockId) {
+        setFormData(prev => ({ ...prev, stock: String(initialStockId) }))
+      }
     }
-  }, [movementToEdit, isOpen])
+  }, [movementToEdit, isOpen, initialStockId])
 
   // ── Data Fetching ─────────────────────────────
-  const { data: stocksData, isLoading: stocksLoading } = useQuery({
+  // On récupère TOUTES les pages : la recherche doit porter sur l'ensemble
+  // des variantes, pas seulement les 20/100 premières renvoyées par l'API.
+  const { data: allStocks = [], isLoading: stocksLoading } = useQuery<Stock[]>({
     queryKey: ['stocks'],
-    queryFn: async () => {
-      const res = await api.get('/stocks/')
-      return res.data
-    },
+    queryFn: () => fetchAllPages<Stock>('/stocks/'),
     enabled: isOpen
   })
-
-  const allStocks: Stock[] = Array.isArray(stocksData) ? stocksData : (stocksData?.results || [])
 
   // Filtrer par produit si preselectedProductId est fourni
   const stocks = preselectedProductId
@@ -147,6 +155,8 @@ export default function AddMovementModal({
       reason: '',
       notes: '',
     })
+    setStockSearchTerm('')
+    setShowStockList(false)
   }
 
   const handleChange = (
@@ -161,6 +171,24 @@ export default function AddMovementModal({
 
   const selectedStock = stocks.find(s => s.id === Number(formData.stock))
 
+  // Filtre la liste par nom de produit ou SKU de variante
+  const filteredStocks = useMemo(() => {
+    const term = stockSearchTerm.trim().toLowerCase()
+    if (!term) return stocks
+    return stocks.filter(s =>
+      (s.product_name || '').toLowerCase().includes(term) ||
+      (s.variant_sku || '').toLowerCase().includes(term)
+    )
+  }, [stocks, stockSearchTerm])
+
+  const stockListOpen = showStockList || !formData.stock
+
+  const handleSelectStock = (stockId: number) => {
+    setFormData(prev => ({ ...prev, stock: String(stockId) }))
+    setShowStockList(false)
+    setStockSearchTerm('')
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -174,13 +202,15 @@ export default function AddMovementModal({
 
     if (formData.movement_type === 'AJUSTEMENT' && !movementToEdit) {
       if (!selectedStock) return
+      // L'utilisateur saisit le "nouveau stock réel" ; on enregistre l'écart
+      // signé (peut être négatif), mais le type reste bien AJUSTEMENT —
+      // jamais réécrit en Entrée/Sortie comme avant.
       const diff = payload_quantite - selectedStock.on_hand_qty
       if (diff === 0) {
         alert('Le stock est déjà à ce montant. Aucun ajustement nécessaire.')
         return
       }
-      payload_type = diff > 0 ? 'ENTREE' : 'SORTIE'
-      payload_quantite = Math.abs(diff)
+      payload_quantite = diff
     }
 
     mutation.mutate({
@@ -241,24 +271,56 @@ export default function AddMovementModal({
                   </span>
                 )}
               </label>
-              <select
-                name="stock"
-                value={formData.stock}
-                onChange={handleChange}
-                disabled={stocksLoading}
-                className="w-full h-11 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
-                required
-              >
-                <option value="">{stocksLoading ? 'Chargement des stocks...' : 'Sélectionnez une variante...'}</option>
-                {(preselectedProductId
-                  ? allStocks.filter(s => (s as any).product_id === preselectedProductId)
-                  : allStocks
-                ).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.product_name} — {s.variant_sku} (Stock actuel : {s.on_hand_qty})
-                  </option>
-                ))}
-              </select>
+              {!stockListOpen && selectedStock ? (
+                <button
+                  type="button"
+                  onClick={() => setShowStockList(true)}
+                  className="w-full h-11 px-3 flex items-center justify-between gap-2 rounded-xl border border-input bg-background text-sm text-left hover:border-primary/50 transition-all"
+                >
+                  <span className="font-medium truncate">
+                    {selectedStock.product_name} — {selectedStock.variant_sku} (Stock actuel : {selectedStock.on_hand_qty})
+                  </span>
+                  <span className="text-xs text-primary font-bold shrink-0">Changer</span>
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      value={stockSearchTerm}
+                      onChange={(e) => setStockSearchTerm(e.target.value)}
+                      placeholder="Rechercher un produit ou un SKU..."
+                      className="h-11 pl-9 rounded-xl"
+                      autoFocus={!!selectedStock}
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-input divide-y divide-border">
+                    {stocksLoading ? (
+                      <div className="p-3 text-sm text-muted-foreground">Chargement des stocks...</div>
+                    ) : filteredStocks.length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground">Aucun résultat.</div>
+                    ) : (
+                      filteredStocks.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleSelectStock(s.id)}
+                          className={`w-full flex items-center justify-between gap-2 p-3 text-left text-sm hover:bg-muted transition-colors ${
+                            String(s.id) === formData.stock ? 'bg-primary/5' : ''
+                          }`}
+                        >
+                          <span className="truncate">
+                            <span className="font-semibold">{s.product_name}</span>
+                            <span className="text-muted-foreground"> — {s.variant_sku}</span>
+                          </span>
+                          <span className="text-xs font-bold text-muted-foreground shrink-0">Stock : {s.on_hand_qty}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -303,7 +365,7 @@ export default function AddMovementModal({
                     onChange={handleChange}
                     placeholder="ex: 10"
                     className="h-11 rounded-xl"
-                    min="1"
+                    min={formData.movement_type === 'AJUSTEMENT' ? 0 : 1}
                     required
                   />
                 </div>
@@ -351,9 +413,11 @@ export default function AddMovementModal({
                     <div className="text-center">
                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Nouveau Stock</p>
                        <p className="text-lg font-black text-primary">
-                          {formData.movement_type === 'ENTREE' 
-                            ? selectedStock.on_hand_qty + Number(formData.quantite)
-                            : selectedStock.on_hand_qty - Number(formData.quantite)}
+                          {formData.movement_type === 'AJUSTEMENT' && !movementToEdit
+                            ? Number(formData.quantite)
+                            : formData.movement_type === 'ENTREE'
+                              ? selectedStock.on_hand_qty + Number(formData.quantite)
+                              : selectedStock.on_hand_qty - Number(formData.quantite)}
                        </p>
                     </div>
                  </div>

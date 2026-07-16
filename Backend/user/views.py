@@ -12,7 +12,7 @@ from .serializers import (
     UserListSerializer, UserDetailSerializer, UserCreateSerializer,
     UserMeUpdateSerializer, PasswordChangeSerializer, CustomAuthTokenSerializer
 )
-from .permissions import IsAdminOrSelf, IsAdminUser
+from .permissions import IsAdminOrSelf, IsAdminUser, required_page
 from axes.handlers.proxy import AxesProxyHandler
 from axes.helpers import get_lockout_response
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -70,10 +70,14 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserDetailSerializer
 
     def get_permissions(self):
+        # La page "Utilisateurs" (gestion des comptes + des permissions) exige
+        # en plus des vérifications existantes (is_staff/self) d'avoir 'users'
+        # dans allowed_pages — un admin peut se retirer cette page lui-même
+        # (voir garde anti-auto-verrouillage dans UserDetailSerializer.validate).
         if self.action in ['list', 'create']:
-            return [IsAdminUser()]
+            return [IsAdminUser(), required_page('users')()]
         if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrSelf()]
+            return [IsAdminOrSelf(), required_page('users')()]
         return super().get_permissions()
 
     def get_queryset(self):

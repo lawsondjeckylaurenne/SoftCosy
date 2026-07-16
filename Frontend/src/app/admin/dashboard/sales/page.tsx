@@ -398,6 +398,10 @@ export default function SalesPage() {
                       <p className="font-semibold text-sm mt-0.5">{selectedSaleDetail.customer?.name || selectedSaleDetail.customer_name || 'Anonyme'}</p>
                     </div>
                     <div>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Téléphone</p>
+                      <p className="font-semibold text-sm mt-0.5">{selectedSaleDetail.customer?.phone || '—'}</p>
+                    </div>
+                    <div>
                       <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Total</p>
                       <p className="font-black text-lg text-primary mt-0.5">{parseFloat(selectedSaleDetail.total).toFixed(2)} FCFA</p>
                     </div>

@@ -5,6 +5,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
+from user.permissions import required_page
 from .models import Supplier, Purchase, PurchaseLine
 from .serializers import (
     SupplierSerializer,
@@ -26,7 +27,7 @@ from .serializers import (
 class SupplierViewSet(viewsets.ModelViewSet):
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('suppliers')]
     search_fields = ['name', 'phone']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
@@ -43,7 +44,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
 class PurchaseLineViewSet(viewsets.ModelViewSet):
     queryset = PurchaseLine.objects.select_related('purchase', 'product', 'variant')
     serializer_class = PurchaseLineSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('purchases')]
     filterset_fields = ['purchase', 'product', 'variant']
 
 
@@ -58,7 +59,7 @@ class PurchaseLineViewSet(viewsets.ModelViewSet):
 class PurchaseViewSet(viewsets.ModelViewSet):
     queryset = Purchase.objects.select_related('supplier').prefetch_related('lines')
     serializer_class = PurchaseListSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('purchases')]
 
     def get_serializer_class(self):
         if self.action == 'list':

@@ -5,7 +5,7 @@ class Customer(models.Model):
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=32, blank=True, null=True)
+    phone = models.CharField(max_length=32, unique=True)
     address = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateField(blank=True, null=True)
 

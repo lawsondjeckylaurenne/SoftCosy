@@ -212,6 +212,7 @@
     const WHATSAPP_NUMBER = '22892409878'; // ← Mets ton numéro ici ex: 22890123456
 
     const API_PRODUITS_URL = 'https://softcosy-backend.onrender.com/api/site/products/?page_size=100';
+    const API_ORDERS_URL = 'https://softcosy-backend.onrender.com/api/site/orders/';
 
     function toFCFA(price) {
       return (price || 0).toLocaleString('fr-FR') + ' FCFA';
@@ -717,6 +718,32 @@
       ].join('\n');
 
       const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+
+      // Enregistre la commande en base (best-effort : ne bloque jamais le
+      // flux WhatsApp existant, même si l'API est indisponible)
+      const orderNotes = [
+        notes,
+        payment === 'mobile' && mobileNum ? `Mobile Money : ${mobileNum}` : '',
+      ].filter(Boolean).join(' | ');
+
+      fetch(API_ORDERS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_name: name,
+          customer_phone: phone,
+          delivery_address: address,
+          payment_mode: payment === 'mobile' ? 'MOBILE_MONEY' : 'CASH_LIVRAISON',
+          notes: orderNotes,
+          lines: cart.map(i => ({
+            product: i.product.id,
+            size: i.size,
+            color: i.color,
+            quantity: i.qty,
+            unit_price: i.product.price,
+          })),
+        }),
+      }).catch(err => console.error('Erreur enregistrement commande :', err));
 
       // Open WhatsApp
       window.open(waUrl, '_blank');

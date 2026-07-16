@@ -6,10 +6,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Edit2, Trash2, Search, Loader2, Camera, Link as LinkIcon, User as UserIcon } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Loader2, Camera, Link as LinkIcon, User as UserIcon, Lock } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuth } from '@/components/AuthContext'
+import { menuItems } from '@/components/sidebar'
+
+// Pages par défaut à l'attribution d'un rôle (miroir de DEFAULT_PAGES_BY_ROLE
+// côté backend — Backend/user/models.py) : sert uniquement à préremplir les
+// cases à cocher à la création, l'admin peut ensuite tout personnaliser.
+const DEFAULT_PAGES_BY_ROLE: Record<string, string[]> = {
+  ADMIN: menuItems.map(m => m.id),
+  MANAGER: menuItems.map(m => m.id).filter(id => id !== 'users'),
+  SELLER: ['cashier', 'products', 'stocks', 'sales', 'orders', 'customers', 'inventory', 'suppliers'],
+}
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<any>(null)
@@ -28,6 +40,7 @@ export default function UsersPage() {
     role: 'SELLER',
     image: null as File | null,
     image_url: '',
+    allowed_pages: DEFAULT_PAGES_BY_ROLE.SELLER as string[],
   })
 
   // 1. Récupération des utilisateurs réels depuis le Backend Django
@@ -104,6 +117,7 @@ export default function UsersPage() {
       role: 'SELLER',
       image: null,
       image_url: '',
+      allowed_pages: DEFAULT_PAGES_BY_ROLE.SELLER,
     })
     setImagePreview(null)
   }
@@ -120,10 +134,35 @@ export default function UsersPage() {
       role: user.role,
       image: null,
       image_url: user.image_url || '',
+      allowed_pages: user.allowed_pages || DEFAULT_PAGES_BY_ROLE[user.role] || [],
     })
     setImagePreview(user.image || user.image_url || null)
     setIsModalOpen(true)
   }
+
+  // Quand le rôle change À LA CRÉATION uniquement, repartir des pages par
+  // défaut de ce rôle (l'admin peut ensuite tout personnaliser avant d'enregistrer).
+  const handleRoleChange = (role: string) => {
+    setFormData(prev => ({
+      ...prev,
+      role,
+      allowed_pages: editingUser ? prev.allowed_pages : (DEFAULT_PAGES_BY_ROLE[role] || []),
+    }))
+  }
+
+  const togglePage = (pageId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      allowed_pages: prev.allowed_pages.includes(pageId)
+        ? prev.allowed_pages.filter(p => p !== pageId)
+        : [...prev.allowed_pages, pageId],
+    }))
+  }
+
+  // Un admin ne peut pas se retirer lui-même l'accès à la page "Utilisateurs"
+  // (seul endroit permettant de rétablir des permissions) — miroir de la garde backend.
+  const isEditingSelf = !!editingUser && !!currentUser && editingUser.id === currentUser.id
+  const isUsersCheckboxLocked = isEditingSelf && currentUser?.role === 'ADMIN'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,6 +172,7 @@ export default function UsersPage() {
     data.append('email', formData.email)
     data.append('role', formData.role)
     data.append('username', formData.email.split('@')[0]) // Username requis par le backend
+    data.append('allowed_pages', JSON.stringify(formData.allowed_pages))
     
     if (formData.image_url) data.append('image_url', formData.image_url)
     if (formData.image) data.append('image', formData.image)
@@ -324,9 +364,9 @@ export default function UsersPage() {
                     
                     <div className="space-y-2">
                         <label className="text-[11px] font-black uppercase text-muted-foreground/70 px-1 tracking-widest">Rôle Système</label>
-                        <select 
-                            value={formData.role} 
-                            onChange={(e) => setFormData({...formData, role: e.target.value})}
+                        <select
+                            value={formData.role}
+                            onChange={(e) => handleRoleChange(e.target.value)}
                             className="w-full h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border-0 px-5 font-black text-sm outline-none ring-primary focus:ring-2 transition-all appearance-none"
                         >
                             <option value="SELLER">🛒 Vendeur / Caissier</option>
@@ -352,6 +392,41 @@ export default function UsersPage() {
                             <Input type="password" required value={formData.password2} onChange={(e) => setFormData({...formData, password2: e.target.value})} className="h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border-0" />
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Pages autorisées — RBAC par page, par utilisateur */}
+            <div className="space-y-3 pt-6 border-t border-border/50">
+                <div>
+                    <label className="text-[11px] font-black uppercase text-muted-foreground/70 px-1 tracking-widest">Pages autorisées</label>
+                    <p className="text-xs text-muted-foreground px-1 mt-1">Détermine les pages visibles et utilisables par ce compte, dans l'application.</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {menuItems.map((item) => {
+                        const Icon = item.icon
+                        const checked = formData.allowed_pages.includes(item.id)
+                        const locked = item.id === 'users' && isUsersCheckboxLocked
+                        return (
+                            <label
+                                key={item.id}
+                                className={`flex items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                                    checked ? 'border-primary bg-primary/5' : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800'
+                                } ${locked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                title={locked ? "Vous ne pouvez pas vous retirer vous-même l'accès à cette page" : undefined}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={locked}
+                                    onChange={() => togglePage(item.id)}
+                                    className="w-4 h-4 accent-primary shrink-0"
+                                />
+                                <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                                <span className="text-xs font-bold truncate flex-1">{item.label}</span>
+                                {locked && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
+                            </label>
+                        )
+                    })}
                 </div>
             </div>
 

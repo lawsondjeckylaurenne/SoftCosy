@@ -11,6 +11,9 @@ export interface AuthUser {
   full_name: string;
   role: 'ADMIN' | 'SELLER' | 'MANAGER';
   is_active: boolean;
+  is_superuser?: boolean;
+  // Pages du menu que cet utilisateur peut voir/utiliser (RBAC par page, par utilisateur)
+  allowed_pages?: string[];
   phone?: number;
   address?: string;
 }

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'sale',
     'purchase',
     'stockmouvement',
+    'order',
     'dashboard',
     'django.contrib.admin',
     'django.contrib.auth',

@@ -38,4 +38,24 @@ api.interceptors.response.use(
   }
 );
 
+// Récupère toutes les pages d'un endpoint paginé DRF (utile pour les listes
+// qu'on veut filtrer/agréger entièrement côté client, ex: stock par variante).
+export async function fetchAllPages<T = any>(url: string, params: Record<string, any> = {}): Promise<T[]> {
+  let results: T[] = [];
+  let page = 1;
+
+  while (true) {
+    const res = await api.get(url, { params: { ...params, page, page_size: 100 } });
+    const data = res.data;
+    const pageResults: T[] = Array.isArray(data) ? data : (data.results || []);
+    results = results.concat(pageResults);
+
+    const hasNext = !Array.isArray(data) && !!data.next;
+    if (!hasNext) break;
+    page += 1;
+  }
+
+  return results;
+}
+
 export default api;

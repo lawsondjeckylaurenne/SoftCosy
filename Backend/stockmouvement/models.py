@@ -31,6 +31,8 @@ class StockMovement(models.Model):
 
     # Choix des raisons (Synchronisé avec le frontend)
     REASON_CHOICES = (
+        ("STOCK_INITIAL", "Stock initial (création produit)"),
+        ("COMMANDE_LIVREE", "Commande livrée"),
         ("ACHAT_FOURNISSEUR", "Achat fournisseur"),
         ("RETOUR_TEST", "Retour de test"),
         ("CORRECTION_INVENTAIRE", "Correction inventaire"),

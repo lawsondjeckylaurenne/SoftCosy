@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
+from django.utils import timezone
 from .models import Customer, Sale, SaleLine
 from product.models import Product, Variant  # ← import depuis product
 
@@ -97,6 +98,15 @@ class SaleDetailSerializer(serializers.ModelSerializer):
 class SaleCreateUpdateSerializer(serializers.ModelSerializer):
     lines = SaleLineSerializer(many=True, required=False)
 
+    # Le client (Customer) n'est jamais fourni directement par son id : il est
+    # retrouvé ou créé automatiquement à partir du téléphone, qui est la clé
+    # fiable pour retracer un client. Le champ 'customer' devient donc en
+    # lecture seule (renvoyé dans la réponse), et écriture via customer_phone.
+    customer = CustomerSerializer(read_only=True)
+    customer_name = serializers.CharField(max_length=255, required=True, allow_blank=False)
+    customer_phone = serializers.CharField(max_length=32, write_only=True, required=True, allow_blank=False)
+    customer_address = serializers.CharField(max_length=255, write_only=True, required=False, allow_blank=True)
+
     class Meta:
         model = Sale
         fields = [
@@ -105,6 +115,8 @@ class SaleCreateUpdateSerializer(serializers.ModelSerializer):
             'user',
             'customer',
             'customer_name',
+            'customer_phone',
+            'customer_address',
             'sold_at',
             'channel',
             'discount_amount',
@@ -113,6 +125,40 @@ class SaleCreateUpdateSerializer(serializers.ModelSerializer):
             'lines',
         ]
         read_only_fields = ['id', 'subtotal', 'total']
+
+    def validate_customer_phone(self, value):
+        return value.strip()
+
+    def _resolve_customer(self, validated_data):
+        """Retrouve le client par téléphone (unique) ou le crée. Met à jour
+        le nom/l'adresse si le client existait déjà et que de nouvelles
+        infos ont été saisies."""
+        phone = validated_data.pop('customer_phone', None)
+        address = validated_data.pop('customer_address', '')
+        if not phone:
+            return
+
+        name = validated_data.get('customer_name') or 'Client'
+        customer, created = Customer.objects.get_or_create(
+            phone=phone,
+            defaults={
+                'name': name,
+                'address': address or None,
+                'created_at': timezone.now().date(),
+            },
+        )
+        if not created:
+            update_fields = []
+            if name and customer.name != name:
+                customer.name = name
+                update_fields.append('name')
+            if address and customer.address != address:
+                customer.address = address
+                update_fields.append('address')
+            if update_fields:
+                customer.save(update_fields=update_fields)
+
+        validated_data['customer'] = customer
 
     def calculate_line_total(self, line_data):
         """Calcule le total d'une ligne"""
@@ -124,9 +170,11 @@ class SaleCreateUpdateSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        from django.utils import timezone
         lines_data = validated_data.pop('lines', [])
-        
+
+        # Retrouve ou crée le client à partir du téléphone (obligatoire)
+        self._resolve_customer(validated_data)
+
         # S'assurer que sold_at est rempli si non fourni
         if not validated_data.get('sold_at'):
             validated_data['sold_at'] = timezone.now()
@@ -158,6 +206,10 @@ class SaleCreateUpdateSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         lines_data = validated_data.pop('lines', None)
+
+        # Retrouve/crée le client seulement si un téléphone est fourni
+        # (ex: PATCH de remboursement n'envoie ni customer_phone ni customer_name)
+        self._resolve_customer(validated_data)
 
         # Mise à jour des champs simples de la vente
         for attr, value in validated_data.items():

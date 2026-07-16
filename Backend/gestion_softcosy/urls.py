@@ -23,6 +23,7 @@ from sale.views import CustomerViewSet, SaleViewSet, SaleLineViewSet
 from stockmouvement.views import StockViewSet, StockMovementViewSet, SystemSettingsViewSet
 from purchase.views import SupplierViewSet, PurchaseViewSet, PurchaseLineViewSet
 from inventorycount.views import InventoryCountViewSet, InventoryLineViewSet
+from order.views import OrderViewSet, SiteOrderCreateView
 from dashboard.views import DashboardViewSet
 
 # ── Router principal — application de gestion (routes authentifiées) ──────────
@@ -41,6 +42,7 @@ router.register(r'purchases',        PurchaseViewSet,       basename='purchase')
 router.register(r'purchase-lines',   PurchaseLineViewSet,   basename='purchase-line')
 router.register(r'inventory-counts', InventoryCountViewSet, basename='inventory-count')
 router.register(r'inventory-lines',  InventoryLineViewSet,  basename='inventory-line')
+router.register(r'orders',           OrderViewSet,          basename='order')
 router.register(r'settings',         SystemSettingsViewSet, basename='system-settings')
 router.register(r'dashboard',        DashboardViewSet,      basename='dashboard')
 
@@ -66,6 +68,7 @@ urlpatterns = [
     path('api/site/', include(router_site.urls)),
     path('api/site/brands/',     SiteBrandListView.as_view(),    name='site-brands'),
     path('api/site/categories/', SiteCategoryListView.as_view(), name='site-categories'),
+    path('api/site/orders/',     SiteOrderCreateView.as_view(),  name='site-order-create'),
 
     # ── Documentation API (Swagger / ReDoc) ───────────────────────────────────
     path('api/schema/', SpectacularAPIView.as_view(),                        name='schema'),

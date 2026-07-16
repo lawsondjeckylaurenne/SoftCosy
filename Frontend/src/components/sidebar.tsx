@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, TrendingUp, Settings, ShoppingCart, BarChart3, DollarSign, LogOut, Users, FileText, Truck, ShoppingBag } from 'lucide-react'
+import { LayoutDashboard, Package, TrendingUp, Settings, ShoppingCart, BarChart3, DollarSign, LogOut, Users, FileText, Truck, ShoppingBag, Contact, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/AuthContext'  
 import UserProfileModal from '@/components/user-profile-modal'
@@ -18,12 +18,14 @@ interface SidebarProps {
 // ────────────────────────────────────────────────
 // Mapping entre IDs et routes
 // ────────────────────────────────────────────────
-const routeMap: Record<string, string> = {
+export const routeMap: Record<string, string> = {
   'dashboard': '/admin/dashboard',
   'products': '/admin/dashboard/products',
   'stocks': '/admin/dashboard/stocks',
   'cashier': '/admin/dashboard/cashier',
   'sales': '/admin/dashboard/sales',
+  'orders': '/admin/dashboard/orders',
+  'customers': '/admin/dashboard/customers',
   'inventory': '/admin/dashboard/inventory',
   'suppliers': '/admin/dashboard/suppliers',
   'purchases': '/admin/dashboard/purchases',
@@ -36,7 +38,7 @@ const routeMap: Record<string, string> = {
 // Liste complète des éléments de menu
 // Chaque item a un id, un label, une icône, et optionnellement "adminOnly"
 // ────────────────────────────────────────────────
-const menuItems = [
+export const menuItems = [
   {
     id: 'dashboard',
     label: 'Tableau de bord',
@@ -61,6 +63,16 @@ const menuItems = [
     id: 'sales',
     label: 'Ventes',
     icon: ShoppingCart,
+  },
+  {
+    id: 'orders',
+    label: 'Commandes',
+    icon: ClipboardList,
+  },
+  {
+    id: 'customers',
+    label: 'Clients',
+    icon: Contact,
   },
   {
     id: 'inventory',
@@ -110,35 +122,15 @@ export default function Sidebar({
   const [showProfileModal, setShowProfileModal] = useState(false)
 
   // ────────────────────────────────────────────────
-  // Fonction qui décide quels menus afficher selon le rôle
-  // - ADMIN : voit TOUT
-  // - MANAGER : voit tout sauf "Utilisateurs" (tu peux ajuster)
-  // - SELLER (vendeur) : voit seulement caisse, produits, stocks, ventes
+  // Visibilité du menu = liste de pages autorisées (allowed_pages), gérée
+  // par un admin depuis la page Utilisateurs (RBAC par page, par utilisateur).
+  // Un superuser voit toujours tout (sécurité, ne jamais se bloquer soi-même).
   // ────────────────────────────────────────────────
   const getVisibleMenuItems = () => {
-    if (!user) return [] // sécurité si pas d'utilisateur
-
-    const role = user.role
-
-    if (role === 'ADMIN') {
-      // Admin voit absolument tout
-      return menuItems
-    }
-
-    if (role === 'MANAGER') {
-      // Manager voit tout sauf la gestion des utilisateurs
-      return menuItems.filter(item => !['users'].includes(item.id))
-    }
-
-    if (role === 'SELLER') {
-      // Vendeur limité : caisse, produits, stocks, ventes, inventaire, fournisseurs
-      return menuItems.filter(item =>
-        ['cashier', 'products', 'stocks', 'sales', 'inventory', 'suppliers'].includes(item.id)
-      )
-    }
-
-    // Par défaut (cas improbable) : rien
-    return []
+    if (!user) return []
+    if (user.is_superuser) return menuItems
+    const allowed = user.allowed_pages || []
+    return menuItems.filter(item => allowed.includes(item.id))
   }
 
   // Liste filtrée des items à afficher

@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from .models import Stock, StockMovement, SystemSettings
 from .serializers import StockSerializer, StockMovementSerializer, SystemSettingsSerializer
 from drf_spectacular.utils import extend_schema_view, extend_schema
+from user.permissions import required_page
 
 
 
@@ -22,7 +23,7 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 class StockViewSet(viewsets.ModelViewSet):
     queryset = Stock.objects.select_related('variant__product')
     serializer_class = StockSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('stocks')]
     filterset_fields = ['variant']
     search_fields = ['variant__sku', 'variant__product__name']
     ordering_fields = ['available_qty', 'on_hand_qty']
@@ -47,7 +48,7 @@ class StockMovementViewSet(viewsets.ModelViewSet):
         'user'
     )
     serializer_class = StockMovementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('stocks')]
     filterset_fields = ['movement_type', 'reason', 'stock', 'sale_line', 'product']
     ordering = ['-date']
 
@@ -55,7 +56,7 @@ class StockMovementViewSet(viewsets.ModelViewSet):
 class SystemSettingsViewSet(viewsets.ModelViewSet):
     queryset = SystemSettings.objects.all()
     serializer_class = SystemSettingsSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('settings')]
 
     @action(detail=False, methods=['get', 'patch'])
     def current(self, request):

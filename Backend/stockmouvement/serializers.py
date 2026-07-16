@@ -20,13 +20,16 @@ class StockMovementSerializer(serializers.ModelSerializer):
     variant_sku = serializers.SerializerMethodField(read_only=True)
     product_name = serializers.SerializerMethodField(read_only=True)
     product_id = serializers.SerializerMethodField(read_only=True)
+    # Libellé lisible de la raison (ex: "Stock initial (création produit)"),
+    # pour ne plus jamais afficher le code technique brut dans l'interface.
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
 
     class Meta:
         model = StockMovement
         fields = [
             'id', 'stock', 'product', 'variant_sku', 'product_name', 'product_id',
             'sale_line', 'purchase_line', 'user',
-            'movement_type', 'quantite', 'reason', 'date', 'notes'
+            'movement_type', 'quantite', 'reason', 'reason_display', 'date', 'notes'
         ]
         read_only_fields = ['id', 'date', 'user']
 

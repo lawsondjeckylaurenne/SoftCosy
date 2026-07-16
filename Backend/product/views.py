@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
+from user.permissions import required_page
 from .models import Category, Product, ProductImage, Variant
 from .serializers import (
     CategorySerializer,
@@ -43,11 +44,16 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     queryset           = Category.objects.all()
     serializer_class   = CategorySerializer
-    permission_classes = [IsAuthenticated]
     filter_backends    = [SearchFilter, OrderingFilter]
     search_fields      = ['name']
     ordering_fields    = ['name', 'created_at']
     ordering           = ['name']
+
+    def get_permissions(self):
+        # La liste des catégories est aussi consultée depuis la Caisse (filtre produits)
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated(), required_page('products', 'cashier')()]
+        return [IsAuthenticated(), required_page('products')()]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -67,10 +73,15 @@ class VariantViewSet(viewsets.ModelViewSet):
 
     queryset           = Variant.objects.select_related('product')
     serializer_class   = VariantSerializer
-    permission_classes = [IsAuthenticated]
     filter_backends    = [SearchFilter, OrderingFilter]
     filterset_fields   = ['product', 'is_active', 'size']
     search_fields      = ['sku', 'barcode', 'model']
+
+    def get_permissions(self):
+        # La liste des variantes est aussi consultée depuis l'Inventaire (comptage physique)
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated(), required_page('products', 'inventory')()]
+        return [IsAuthenticated(), required_page('products')()]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -95,11 +106,17 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset           = Product.objects.select_related('category').prefetch_related(
         'variants', 'product_images'
     )
-    permission_classes = [IsAuthenticated]
     filter_backends    = [SearchFilter, OrderingFilter]
     search_fields      = ['name', 'code_produit', 'variants__sku', 'brand']
     ordering_fields    = ['name', 'brand']
     ordering           = ['name']
+
+    def get_permissions(self):
+        # Le catalogue produit (avec prix/stock par variante) est aussi consulté
+        # en lecture depuis la Caisse (panier de vente) et les Commandes (saisie manuelle).
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated(), required_page('products', 'cashier', 'orders')()]
+        return [IsAuthenticated(), required_page('products')()]
 
     def get_queryset(self):
         """Filtre optionnel par category_id via paramètre de requête."""

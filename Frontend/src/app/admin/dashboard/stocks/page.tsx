@@ -18,8 +18,10 @@ import {
   ChevronDown,
   ChevronUp,
   Layers,
+  Boxes,
+  Wrench,
 } from 'lucide-react'
-import api from '@/lib/api'
+import api, { fetchAllPages } from '@/lib/api'
 
 // UI Components
 import { Card } from '@/components/ui/card'
@@ -47,9 +49,20 @@ interface StockMovement {
   movement_type: 'ENTREE' | 'SORTIE' | 'AJUSTEMENT'
   quantite: number
   reason: string
+  reason_display?: string
   date: string
   notes?: string
   user?: string
+}
+
+interface StockLine {
+  id: number
+  variant: number
+  variant_sku: string
+  product_name: string
+  on_hand_qty: number
+  reserved_qty: number
+  available_qty: number
 }
 
 interface ProductGroup {
@@ -80,6 +93,8 @@ export default function StocksPage() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [movementToEdit, setMovementToEdit] = useState<StockMovement | null>(null)
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null)
+  const [stockSearchTerm, setStockSearchTerm] = useState('')
+  const [stockToAdjustId, setStockToAdjustId] = useState<number | null>(null)
 
   // ── Mutations ─────────────────────────────────
   const deleteMovementMutation = useMutation({
@@ -94,14 +109,21 @@ export default function StocksPage() {
   })
 
   // ── Queries ───────────────────────────────────
-  const { data: stocksData = { results: [], count: 0 }, isLoading: stocksLoading } = useQuery({
+  // On récupère TOUTES les pages : avec 122+ variantes, se limiter à la
+  // première page fausserait à la fois les stats et la liste "Stock actuel".
+  const { data: stocks = [], isLoading: stocksLoading } = useQuery<StockLine[]>({
     queryKey: ['stocks'],
-    queryFn: async () => {
-      const res = await api.get('/stocks/')
-      return res.data
-    }
+    queryFn: () => fetchAllPages<StockLine>('/stocks/'),
   })
-  const stocks = stocksData.results || stocksData || []
+
+  const filteredStockLines = useMemo(() => {
+    const term = stockSearchTerm.trim().toLowerCase()
+    if (!term) return stocks
+    return stocks.filter(s =>
+      (s.product_name || '').toLowerCase().includes(term) ||
+      (s.variant_sku || '').toLowerCase().includes(term)
+    )
+  }, [stocks, stockSearchTerm])
 
   const { data: movements = [], isLoading: movementsLoading } = useQuery<StockMovement[]>({
     queryKey: ['stockMovements', page],
@@ -224,6 +246,93 @@ export default function StocksPage() {
                   </Card>
                 )
               })
+            )}
+          </div>
+
+          {/* STOCK ACTUEL PAR VARIANTE */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Boxes className="w-5 h-5 text-primary" />
+                Stock Actuel par Variante
+              </h2>
+              <Badge variant="secondary" className="font-bold text-[10px] uppercase">
+                {filteredStockLines.length} variante(s)
+              </Badge>
+            </div>
+
+            <Card className="p-4 border-border/50 shadow-sm bg-card/50 backdrop-blur-sm">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input
+                  placeholder="Rechercher une variante par produit ou SKU..."
+                  value={stockSearchTerm}
+                  onChange={(e) => setStockSearchTerm(e.target.value)}
+                  className="pl-11 h-12 bg-background/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 rounded-xl transition-all"
+                />
+              </div>
+            </Card>
+
+            {stocksLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-14 w-full rounded-2xl bg-muted/40 animate-pulse" />
+                ))}
+              </div>
+            ) : filteredStockLines.length === 0 ? (
+              <Card className="p-16 border-dashed border-2 flex flex-col items-center justify-center text-center rounded-3xl opacity-60">
+                <Boxes className="w-8 h-8 text-muted-foreground mb-3" />
+                <h3 className="font-bold">Aucune variante trouvée</h3>
+              </Card>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-xl max-h-[420px] overflow-y-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
+                    <tr className="border-b border-border/50">
+                      <th className="p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Produit</th>
+                      <th className="p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">SKU</th>
+                      <th className="p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Stock Disponible</th>
+                      <th className="p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Statut</th>
+                      <th className="p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {filteredStockLines.map((s) => {
+                      const qty = s.available_qty ?? s.on_hand_qty
+                      const status = qty <= 0
+                        ? { label: 'Épuisé', color: 'text-destructive' }
+                        : qty <= 5
+                          ? { label: 'Critique', color: 'text-red-500' }
+                          : qty < 10
+                            ? { label: 'Stock faible', color: 'text-orange-500' }
+                            : { label: 'En stock', color: 'text-green-600' }
+                      return (
+                        <tr key={s.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="p-3 font-bold text-foreground text-sm">{s.product_name || 'Produit inconnu'}</td>
+                          <td className="p-3">
+                            <span className="font-mono font-bold text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              {s.variant_sku}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center font-black">{qty}</td>
+                          <td className={`p-3 text-center text-[10px] font-bold uppercase ${status.color}`}>{status.label}</td>
+                          <td className="p-3 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 rounded-lg text-xs font-bold gap-1.5"
+                              onClick={() => setStockToAdjustId(s.id)}
+                            >
+                              <Wrench className="w-3 h-3" />
+                              Ajuster
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -373,11 +482,15 @@ export default function StocksPage() {
                                          </td>
                                          <td className="p-3 text-center">
                                            <span className={`font-black ${m.movement_type === 'ENTREE' ? 'text-green-600' : m.movement_type === 'SORTIE' ? 'text-red-600' : 'text-orange-600'}`}>
-                                             {m.movement_type === 'SORTIE' ? '-' : '+'}{m.quantite}
+                                             {m.movement_type === 'SORTIE'
+                                               ? `-${m.quantite}`
+                                               : m.movement_type === 'AJUSTEMENT'
+                                                 ? (m.quantite > 0 ? `+${m.quantite}` : m.quantite)
+                                                 : `+${m.quantite}`}
                                            </span>
                                          </td>
                                          <td className="p-3">
-                                           <span className="font-semibold text-foreground/80">{m.reason || '—'}</span>
+                                           <span className="font-semibold text-foreground/80">{m.reason_display || m.reason || '—'}</span>
                                          </td>
                                          <td className="p-3">
                                            <span className="font-bold text-foreground">{new Date(m.date).toLocaleDateString()}</span>
@@ -478,17 +591,20 @@ export default function StocksPage() {
           </div>
         </main>
 
-      <AddMovementModal 
-        isOpen={isAddMovementOpen || !!movementToEdit} 
+      <AddMovementModal
+        isOpen={isAddMovementOpen || !!movementToEdit || !!stockToAdjustId}
         onClose={() => {
            setIsAddMovementOpen(false)
            setMovementToEdit(null)
+           setStockToAdjustId(null)
         }}
         movementToEdit={movementToEdit}
+        initialStockId={stockToAdjustId ?? undefined}
         onSuccess={() => {
            queryClient.invalidateQueries({ queryKey: ['stockMovements'] })
            queryClient.invalidateQueries({ queryKey: ['stocks'] })
            setMovementToEdit(null)
+           setStockToAdjustId(null)
         }}
       />
     </div>

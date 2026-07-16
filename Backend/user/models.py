@@ -30,6 +30,24 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, full_name, **extra_fields)
 
 
+# Liste canonique des pages du menu (doit correspondre aux ids de menuItems
+# dans Frontend/src/components/sidebar.tsx)
+ALL_PAGES = [
+    'dashboard', 'products', 'stocks', 'cashier', 'sales', 'orders',
+    'customers', 'inventory', 'suppliers', 'purchases', 'reports',
+    'users', 'settings',
+]
+
+# Pages par défaut à l'attribution d'un rôle — reproduit le comportement
+# historique de getVisibleMenuItems() dans sidebar.tsx, pour ne rien changer
+# au jour du déploiement de cette fonctionnalité.
+DEFAULT_PAGES_BY_ROLE = {
+    'ADMIN': list(ALL_PAGES),
+    'MANAGER': [p for p in ALL_PAGES if p != 'users'],
+    'SELLER': ['cashier', 'products', 'stocks', 'sales', 'orders', 'customers', 'inventory', 'suppliers'],
+}
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     """Custom User model avec username unique et email comme identifiant principal"""
 
@@ -53,6 +71,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+    # Liste des pages du menu que cet utilisateur peut voir/utiliser (RBAC par
+    # page, par utilisateur — voir ALL_PAGES/DEFAULT_PAGES_BY_ROLE ci-dessus)
+    allowed_pages = models.JSONField(default=list, blank=True)
     image = models.ImageField(upload_to='users/', null=True, blank=True)
     image_url = models.URLField(max_length=500, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)

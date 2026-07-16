@@ -49,6 +49,8 @@ export default function CashierPage() {
   const [amountPaid, setAmountPaid] = useState('')
   const [discountAmount, setDiscountAmount] = useState('0')
   const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('') // obligatoire : sert à retrouver le client
+  const [customerAddress, setCustomerAddress] = useState('') // optionnel
 
   // ── États recherche & pagination produits ─────
   const [searchTerm, setSearchTerm] = useState('')
@@ -195,6 +197,8 @@ export default function CashierPage() {
       setAmountPaid('')
       setDiscountAmount('0')
       setCustomerName('')
+      setCustomerPhone('')
+      setCustomerAddress('')
       setShowPaymentModal(false)
     },
     onError: (err: any) => {
@@ -207,11 +211,20 @@ export default function CashierPage() {
     const paid = parseFloat(amountPaid) || 0
     const discount = parseFloat(discountAmount) || 0
     const expected = total - discount
+
+    // Le téléphone est obligatoire : c'est lui qui permet de retrouver le client
+    if (!customerPhone.trim()) {
+      alert('Le numéro de téléphone du client est obligatoire.')
+      return
+    }
+
     if (paid === expected && cart.length > 0) {
       makeSaleMutation.mutate({
         channel: 'store',
         status: 'PAYE',
-        customer_name: customerName,
+        customer_name: customerName.trim() || 'Client',
+        customer_phone: customerPhone.trim(),
+        customer_address: customerAddress.trim(),
         discount_amount: discount,
         lines: cart.map(item => ({
           product: item.product_id,
@@ -517,7 +530,7 @@ export default function CashierPage() {
       {/* ── Modal de paiement ── */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md shadow-2xl border-0">
+          <Card className="w-full max-w-md shadow-2xl border-0 max-h-[90vh] overflow-y-auto">
             <div className="p-6 space-y-6">
               <div className="text-center">
                 <h3 className="text-2xl font-black text-foreground">Édition du Paiement</h3>
@@ -571,6 +584,26 @@ export default function CashierPage() {
                   onChange={(e) => setCustomerName(e.target.value)}
                   className="h-12 bg-muted/30 border-2 focus-visible:ring-primary"
                 />
+
+                <label className="text-sm font-semibold tracking-wide text-muted-foreground uppercase pt-4 block">Téléphone du client</label>
+                <Input
+                  type="tel"
+                  placeholder="Ex: 07 00 00 00 00"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className={`h-12 bg-muted/30 border-2 focus-visible:ring-primary ${
+                    !customerPhone.trim() ? 'border-red-300' : ''
+                  }`}
+                />
+
+                <label className="text-sm font-semibold tracking-wide text-muted-foreground uppercase pt-4 block">Adresse du client (optionnel)</label>
+                <Input
+                  type="text"
+                  placeholder="Ex: Quartier, ville"
+                  value={customerAddress}
+                  onChange={(e) => setCustomerAddress(e.target.value)}
+                  className="h-12 bg-muted/30 border-2 focus-visible:ring-primary"
+                />
               </div>
 
               <div className="grid grid-cols-4 gap-2 pt-2">
@@ -591,7 +624,7 @@ export default function CashierPage() {
                 </Button>
                 <Button
                   onClick={handlePayment}
-                  disabled={!amountPaid || parseFloat(amountPaid) !== (total - (parseFloat(discountAmount) || 0)) || makeSaleMutation.isPending}
+                  disabled={!amountPaid || !customerPhone.trim() || parseFloat(amountPaid) !== (total - (parseFloat(discountAmount) || 0)) || makeSaleMutation.isPending}
                   className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                 >
                   {makeSaleMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Valider'}

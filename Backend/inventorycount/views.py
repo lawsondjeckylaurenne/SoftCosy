@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
+from user.permissions import required_page
 from .models import InventoryCount, InventoryLine
 from .serializers import (
     InventoryCountListSerializer,
@@ -28,7 +29,7 @@ from .serializers import (
 class InventoryLineViewSet(viewsets.ModelViewSet):
     queryset = InventoryLine.objects.select_related('inventory_count', 'product', 'variant')
     serializer_class = InventoryLineSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('inventory')]
     filterset_fields = ['inventory_count', 'product', 'variant']
 
 
@@ -43,7 +44,7 @@ class InventoryLineViewSet(viewsets.ModelViewSet):
 class InventoryCountViewSet(viewsets.ModelViewSet):
     queryset = InventoryCount.objects.select_related('user').prefetch_related('lines')
     serializer_class = InventoryCountListSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, required_page('inventory')]
 
     def get_serializer_class(self):
         if self.action == 'list':
