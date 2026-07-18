@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Download, Loader2, BarChart3, TrendingUp, PieChart as PieChartIcon, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import api from '@/lib/api'
+import { fetchAllPages } from '@/lib/api'
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
@@ -20,20 +20,17 @@ export default function ReportsPage() {
   const router = useRouter()
 
   // 1. Récupération des données réelles depuis le Backend Django
-  const { data: rawSales, isLoading: isLoadingSales } = useQuery({
+  // fetchAllPages : indispensable au-delà de 20 ventes (taille de page par
+  // défaut) sinon les périodes larges (trimestre, année) sous-comptent
+  // silencieusement en ne regardant que les 20 ventes les plus récentes.
+  const { data: rawSales, isLoading: isLoadingSales, isError: isErrorSales } = useQuery({
     queryKey: ['sales-all'],
-    queryFn: async () => {
-      const res = await api.get('/sales/')
-      return res.data.results || res.data
-    }
+    queryFn: () => fetchAllPages('/sales/'),
   })
 
-  const { data: saleLines, isLoading: isLoadingLines } = useQuery({
+  const { data: saleLines, isLoading: isLoadingLines, isError: isErrorLines } = useQuery({
     queryKey: ['sale-lines-all'],
-    queryFn: async () => {
-      const res = await api.get('/sale-lines/')
-      return res.data.results || res.data
-    }
+    queryFn: () => fetchAllPages('/sale-lines/'),
   })
 
   // 2. Logique d'agrégation et de filtrage dynamique
@@ -165,7 +162,13 @@ export default function ReportsPage() {
     <div className="flex flex-col h-full text-foreground">
       <main className="flex-1 overflow-auto p-4 md:p-8" id="reports-content">
           <div className="max-w-7xl mx-auto space-y-8 pb-12">
-            
+
+            {(isErrorSales || isErrorLines) && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-sm font-semibold px-4 py-3">
+                Erreur de chargement des données de ventes. Réessaie de rafraîchir la page.
+              </div>
+            )}
+
             {/* Barre de Titre et Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
@@ -209,7 +212,7 @@ export default function ReportsPage() {
                       </div>
                       <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Chiffre d'Affaires</p>
                     </div>
-                    <p className="text-3xl font-black text-foreground">{stats?.totalRevenue.toLocaleString()} FCFA</p>
+                    <p className="text-3xl font-black text-foreground">{(stats?.totalRevenue || 0).toLocaleString()} FCFA</p>
                   </Card>
 
                   <Card className="p-6 border-0 shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-zinc-900 relative overflow-hidden group hover:bg-slate-50 dark:hover:bg-zinc-800/80 transition-all duration-300">
@@ -220,7 +223,7 @@ export default function ReportsPage() {
                       </div>
                       <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Commandes</p>
                     </div>
-                    <p className="text-3xl font-black text-foreground">{stats?.totalOrders}</p>
+                    <p className="text-3xl font-black text-foreground">{stats?.totalOrders || 0}</p>
                   </Card>
 
                   <Card className="p-6 border-0 shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-zinc-900 relative overflow-hidden group hover:bg-slate-50 dark:hover:bg-zinc-800/80 transition-all duration-300">
@@ -328,7 +331,7 @@ export default function ReportsPage() {
                             dataKey="value"
                             label={({ name, value }) => `${name} (${value}%)`}
                           >
-                            {stats?.categoryData.map((entry: any, index: number) => (
+                            {stats?.categoryData?.map((entry: any, index: number) => (
                               <Cell key={`cell-${index}`} fill={colors[index % colors.length]} stroke="transparent" />
                             ))}
                           </Pie>
@@ -373,7 +376,7 @@ export default function ReportsPage() {
                       <p className="text-sm text-muted-foreground font-medium">Classement précis par quantité vendue</p>
                     </div>
                     <div className="space-y-4">
-                      {stats?.topProducts.map((product: any, index: number) => (
+                      {stats?.topProducts?.map((product: any, index: number) => (
                         <div key={index} className="flex items-center justify-between p-4 bg-muted/30 dark:bg-zinc-800/20 rounded-2xl border border-transparent hover:border-primary/20 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-300">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-900 shadow-lg shadow-black/5 flex items-center justify-center font-black text-primary text-lg">
@@ -390,7 +393,7 @@ export default function ReportsPage() {
                           </div>
                         </div>
                       ))}
-                      {stats?.topProducts.length === 0 && (
+                      {(stats?.topProducts?.length ?? 0) === 0 && (
                         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                             <ShoppingBag className="w-12 h-12 mb-4 opacity-20" />
                             <p className="font-bold">Aucune vente enregistrée.</p>

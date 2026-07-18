@@ -104,7 +104,11 @@ export default function OrdersPage() {
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) => api.patch(`/orders/${id}/`, { status }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
-    onError: (err: any) => alert("Erreur lors du changement de statut : " + (err.response?.data?.detail || 'Erreur inconnue')),
+    onError: (err: any) => {
+      const data = err?.response?.data
+      const msg = data?.status?.[0] || data?.detail || 'Erreur inconnue'
+      alert("Erreur lors du changement de statut : " + msg)
+    },
   })
 
   const toggleReveal = (id: number) => {

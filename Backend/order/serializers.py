@@ -6,6 +6,7 @@ from sale.models import Customer
 from sale.serializers import CustomerSerializer
 from product.models import Product
 from product.serializers import ProductListSerializer, VariantSerializer, _extraire_taille
+from stockmouvement.models import Stock
 
 
 def resolve_customer(phone, name, address):
@@ -128,6 +129,34 @@ class OrderStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['status', 'notes']
+
+    def validate(self, attrs):
+        new_status = attrs.get('status')
+
+        # Passage à LIVRE : on vérifie qu'il y a bien assez de stock pour
+        # chaque ligne AVANT d'accepter la transition — aucun stock ne doit
+        # pouvoir passer sous zéro à cause d'une livraison.
+        if new_status == Order.STATUS_LIVRE and self.instance and self.instance.status != Order.STATUS_LIVRE:
+            insuffisants = []
+            for line in self.instance.lines.select_related('variant__product').all():
+                if not line.variant:
+                    # Pas de variante résolue (ex: commande site sans correspondance
+                    # de taille) : impossible de vérifier un stock qu'on ne connaît pas.
+                    continue
+                stock = Stock.objects.filter(variant=line.variant).first()
+                disponible = stock.on_hand_qty if stock else 0
+                if disponible < line.quantity:
+                    produit = line.variant.product.name if line.variant.product else line.variant.sku
+                    insuffisants.append(
+                        f"{produit} ({line.variant.sku}) : stock disponible {disponible}, quantité demandée {line.quantity}"
+                    )
+
+            if insuffisants:
+                raise serializers.ValidationError({
+                    'status': "Stock insuffisant pour livrer cette commande — " + " ; ".join(insuffisants)
+                })
+
+        return attrs
 
 
 class SiteOrderLineSerializer(serializers.Serializer):
