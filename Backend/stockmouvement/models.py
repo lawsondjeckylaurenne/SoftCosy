@@ -59,14 +59,21 @@ class StockMovement(models.Model):
     movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPE_CHOICES)
     quantite = models.IntegerField()
     reason = models.CharField(max_length=32, choices=REASON_CHOICES, null=True, blank=True)
+    # Conservé tel quel (utilisé par les scripts de sauvegarde/nettoyage
+    # automatiques et une statistique du tableau de bord, sur comparaison de
+    # date exacte) — voir created_at ci-dessous pour le tri et l'affichage.
     date = models.DateField(auto_now_add=True)
+    # Horodatage précis (date + heure), pour trier/afficher par ordre
+    # chronologique réel — "date" seul ne permet pas de distinguer plusieurs
+    # mouvements survenus le même jour.
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
     notes = models.TextField(null=True, blank=True)
 
     class Meta:
         db_table = "stockmovement"
         verbose_name = "Stock Movement"
         verbose_name_plural = "Stock Movements"
-        ordering = ["-date"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"StockMovement #{self.id} ({self.movement_type})"

@@ -51,6 +51,7 @@ interface StockMovement {
   reason: string
   reason_display?: string
   date: string
+  created_at?: string | null
   notes?: string
   user?: string
 }
@@ -59,6 +60,7 @@ interface StockLine {
   id: number
   variant: number
   variant_sku: string
+  product_id: number | null
   product_name: string
   on_hand_qty: number
   reserved_qty: number
@@ -68,16 +70,8 @@ interface StockLine {
 interface ProductGroup {
   product_id: number
   product_name: string
-  total_stock: number     // sum of all ENTREE - SORTIE for this product
+  total_stock: number     // vrai stock total (somme des variantes), pas dérivé des mouvements
   movements: StockMovement[]
-}
-
-// ── Calcule le stock "affiché" d'un groupe produit ─────────────────────────
-function computeProductStock(movements: StockMovement[]): number {
-  return movements.reduce((sum, m) => {
-    if (m.movement_type === 'ENTREE' || m.movement_type === 'AJUSTEMENT') return sum + m.quantite
-    return sum - m.quantite
-  }, 0)
 }
 
 export default function StocksPage() {
@@ -136,7 +130,22 @@ export default function StocksPage() {
     }
   })
 
-  // ── Grouper les mouvements par produit ─────────────────────────────────
+  // ── Vrai stock total par produit (somme de toutes ses variantes) ───────
+  // Source : /api/stocks/ (authoritative), jamais dérivé des mouvements —
+  // l'historique des mouvements est paginé, donc une somme partielle des
+  // mouvements affichés donnerait un total faux (ex: une vente récente sans
+  // les entrées de stock plus anciennes, hors de la page chargée).
+  const stockTotalByProduct = useMemo(() => {
+    const totals = new Map<number, number>()
+    stocks.forEach(s => {
+      if (s.product_id == null) return
+      totals.set(s.product_id, (totals.get(s.product_id) || 0) + (s.on_hand_qty || 0))
+    })
+    return totals
+  }, [stocks])
+
+  // ── Grouper les mouvements par produit (historique uniquement — le total
+  // affiché vient de stockTotalByProduct, pas des mouvements listés ici) ──
   const productGroups = useMemo((): ProductGroup[] => {
     const groupMap = new Map<number, ProductGroup>()
 
@@ -159,17 +168,17 @@ export default function StocksPage() {
       group.movements.push(m)
     })
 
-    // Calculer le stock total par produit + appliquer les filtres recherche
+    // Le stock total vient de la source authoritative, pas des mouvements chargés
     return Array.from(groupMap.values())
       .map(g => ({
         ...g,
-        total_stock: computeProductStock(g.movements),
+        total_stock: stockTotalByProduct.get(g.product_id) ?? 0,
       }))
       .filter(g => {
         if (!searchTerm) return true
         return g.product_name.toLowerCase().includes(searchTerm.toLowerCase())
       })
-  }, [movements, searchTerm])
+  }, [movements, searchTerm, stockTotalByProduct])
 
   // ── Stats ─────────────────────────────────────
   const stats = useMemo(() => {
@@ -453,7 +462,7 @@ export default function StocksPage() {
                                        <th className="p-3 font-bold text-muted-foreground text-center">Type</th>
                                        <th className="p-3 font-bold text-muted-foreground text-center">Qté</th>
                                        <th className="p-3 font-bold text-muted-foreground">Raison</th>
-                                       <th className="p-3 font-bold text-muted-foreground">Date</th>
+                                       <th className="p-3 font-bold text-muted-foreground">Date &amp; Heure</th>
                                        <th className="p-3 font-bold text-muted-foreground">Notes</th>
                                        <th className="p-3 font-bold text-muted-foreground text-right">Actions</th>
                                      </tr>
@@ -493,7 +502,11 @@ export default function StocksPage() {
                                            <span className="font-semibold text-foreground/80">{m.reason_display || m.reason || '—'}</span>
                                          </td>
                                          <td className="p-3">
-                                           <span className="font-bold text-foreground">{new Date(m.date).toLocaleDateString()}</span>
+                                           <span className="font-bold text-foreground">
+                                             {m.created_at
+                                               ? new Date(m.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                               : new Date(m.date).toLocaleDateString()}
+                                           </span>
                                          </td>
                                          <td className="p-3 max-w-[160px]">
                                            {m.notes ? (

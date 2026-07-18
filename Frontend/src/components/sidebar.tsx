@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, TrendingUp, Settings, ShoppingCart, BarChart3, DollarSign, LogOut, Users, FileText, Truck, ShoppingBag, Contact, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, Package, TrendingUp, Settings, ShoppingCart, BarChart3, DollarSign, LogOut, Users, FileText, Truck, ShoppingBag, Contact, ClipboardList, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/AuthContext'  
 import UserProfileModal from '@/components/user-profile-modal'
@@ -35,8 +35,8 @@ export const routeMap: Record<string, string> = {
 }
 
 // ────────────────────────────────────────────────
-// Liste complète des éléments de menu
-// Chaque item a un id, un label, une icône, et optionnellement "adminOnly"
+// Liste complète des éléments de menu (id, label, icône) — la visibilité
+// réelle est décidée par allowed_pages (RBAC par page, par utilisateur)
 // ────────────────────────────────────────────────
 export const menuItems = [
   {
@@ -60,19 +60,19 @@ export const menuItems = [
     icon: DollarSign,
   },
   {
-    id: 'sales',
-    label: 'Ventes',
-    icon: ShoppingCart,
-  },
-  {
     id: 'orders',
     label: 'Commandes',
     icon: ClipboardList,
   },
   {
-    id: 'customers',
-    label: 'Clients',
-    icon: Contact,
+    id: 'sales',
+    label: 'Ventes',
+    icon: ShoppingCart,
+  },
+  {
+    id: 'reports',
+    label: 'Rapports',
+    icon: BarChart3,
   },
   {
     id: 'inventory',
@@ -90,22 +90,50 @@ export const menuItems = [
     icon: ShoppingBag,
   },
   {
-    id: 'reports',
-    label: 'Rapports',
-    icon: BarChart3,
-    adminOnly: true,  // ← visible uniquement pour ADMIN et MANAGER
+    id: 'customers',
+    label: 'Clients',
+    icon: Contact,
   },
   {
     id: 'users',
     label: 'Utilisateurs',
     icon: Users,
-    adminOnly: true,  // ← visible uniquement pour ADMIN
   },
   {
     id: 'settings',
     label: 'Paramètres',
     icon: Settings,
-    adminOnly: true,  // ← visible uniquement pour ADMIN
+  },
+]
+
+// ────────────────────────────────────────────────
+// Regroupement des pages en catégories repliables (accordéon) pour une
+// sidebar plus lisible. "dashboard" reste seul, hors groupe, en haut.
+// ────────────────────────────────────────────────
+const menuGroups = [
+  {
+    id: 'group-products',
+    label: 'Gestion des produits',
+    icon: Package,
+    items: ['products', 'stocks', 'cashier', 'orders'],
+  },
+  {
+    id: 'group-sales',
+    label: 'Ventes & Rapports',
+    icon: ShoppingCart,
+    items: ['sales', 'reports'],
+  },
+  {
+    id: 'group-supply',
+    label: 'Approvisionnement',
+    icon: Truck,
+    items: ['inventory', 'suppliers', 'purchases'],
+  },
+  {
+    id: 'group-admin',
+    label: 'Administration',
+    icon: Settings,
+    items: ['customers', 'users', 'settings'],
   },
 ]
 
@@ -135,6 +163,43 @@ export default function Sidebar({
 
   // Liste filtrée des items à afficher
   const visibleItems = getVisibleMenuItems()
+  const dashboardItem = visibleItems.find(item => item.id === 'dashboard')
+
+  // Chaque groupe ne garde que ses items autorisés ; un groupe sans aucun
+  // item visible n'est pas affiché du tout.
+  const visibleGroups = menuGroups
+    .map(group => ({
+      ...group,
+      children: visibleItems.filter(item => group.items.includes(item.id)),
+    }))
+    .filter(group => group.children.length > 0)
+
+  // Groupes actuellement dépliés (accordéon à ouvertures multiples)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }
+
+  const isRouteActive = (id: string) => {
+    const route = routeMap[id]
+    if (!route) return false
+    return pathname === route || (route !== '/admin/dashboard' && pathname.startsWith(route))
+  }
+
+  // Déplie automatiquement le groupe contenant la page actuellement affichée
+  useEffect(() => {
+    const activeGroup = menuGroups.find(group => group.items.some(id => isRouteActive(id)))
+    if (activeGroup) {
+      setExpandedGroups(prev => new Set(prev).add(activeGroup.id))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   return (
     <>
@@ -164,31 +229,71 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* Navigation : liste des menus filtrés par rôle */}
+          {/* Navigation : Tableau de bord seul, puis catégories repliables */}
           <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-2">
-            {visibleItems.map((item) => {
-              const Icon = item.icon
-              const route = routeMap[item.id]
-              const isActive = pathname === route || (route !== '/admin/dashboard' && pathname.startsWith(route))
+            {dashboardItem && (
+              <Button
+                variant={isRouteActive('dashboard') ? 'default' : 'ghost'}
+                className={`w-full justify-start gap-3 text-base ${
+                  isRouteActive('dashboard')
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                }`}
+                onClick={() => router.push(routeMap.dashboard)}
+              >
+                <dashboardItem.icon className="w-5 h-5" />
+                <span>{dashboardItem.label}</span>
+              </Button>
+            )}
+
+            {visibleGroups.map((group) => {
+              const GroupIcon = group.icon
+              const isExpanded = expandedGroups.has(group.id)
+              const hasActiveChild = group.children.some(item => isRouteActive(item.id))
 
               return (
-                <Button
-                  key={item.id}
-                  variant={isActive ? 'default' : 'ghost'}
-                  className={`w-full justify-start gap-3 text-base ${
-                    isActive
-                      ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                  }`}
-                  onClick={() => {
-                    if (route) {
-                      router.push(route)
-                    }
-                  }}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </Button>
+                <div key={group.id}>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start gap-3 text-base ${
+                      hasActiveChild
+                        ? 'text-sidebar-primary font-semibold'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                    }`}
+                    onClick={() => toggleGroup(group.id)}
+                  >
+                    <GroupIcon className="w-5 h-5" />
+                    <span className="flex-1 text-left">{group.label}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </Button>
+
+                  {isExpanded && (
+                    <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-1">
+                      {group.children.map((item) => {
+                        const Icon = item.icon
+                        const isActive = isRouteActive(item.id)
+
+                        return (
+                          <Button
+                            key={item.id}
+                            variant={isActive ? 'default' : 'ghost'}
+                            className={`w-full justify-start gap-3 text-sm ${
+                              isActive
+                                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                            }`}
+                            onClick={() => router.push(routeMap[item.id])}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span>{item.label}</span>
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </nav>

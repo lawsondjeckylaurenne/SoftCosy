@@ -5,11 +5,14 @@ from .models import Stock, StockMovement, SystemSettings
 class StockSerializer(serializers.ModelSerializer):
     variant_sku = serializers.CharField(source='variant.sku', read_only=True)
     product_name = serializers.CharField(source='variant.product.name', read_only=True)
+    # Permet de regrouper/additionner le stock réel par produit côté frontend
+    # (ex: page Stocks) sans avoir à re-dériver ça d'un historique de mouvements.
+    product_id = serializers.IntegerField(source='variant.product.id', read_only=True, default=None)
 
     class Meta:
         model = Stock
         fields = [
-            'id', 'variant', 'variant_sku', 'product_name',
+            'id', 'variant', 'variant_sku', 'product_id', 'product_name',
             'on_hand_qty', 'reserved_qty', 'available_qty',
             'last_counted_at', 'created_or_updated_at'
         ]
@@ -29,9 +32,9 @@ class StockMovementSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'stock', 'product', 'variant_sku', 'product_name', 'product_id',
             'sale_line', 'purchase_line', 'user',
-            'movement_type', 'quantite', 'reason', 'reason_display', 'date', 'notes'
+            'movement_type', 'quantite', 'reason', 'reason_display', 'date', 'created_at', 'notes'
         ]
-        read_only_fields = ['id', 'date', 'user']
+        read_only_fields = ['id', 'date', 'created_at', 'user']
 
     def get_variant_sku(self, obj):
         if obj.stock and obj.stock.variant:
